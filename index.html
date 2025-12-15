@@ -274,6 +274,12 @@
         let scene, camera, renderer, videoMesh, skeletonLines, jointPoints;
         let lastKps = null; // For smoothing
         const synth = window.speechSynthesis;
+        let voicesLoaded = false;
+        if (synth) {
+            synth.onvoiceschanged = () => {
+                voicesLoaded = true;
+            };
+        }
         let lastSpeakTime = 0;
 
         // --- 1. UI INTERACTION ---
@@ -704,15 +710,25 @@
         }
 
         function speak(msg) {
-            if(!state.audio || !synth) return;
+            if(!state.audio || !synth || !voicesLoaded) return;
+            const voices = synth.getVoices();
+            if(voices.length === 0) {
+                console.warn('No speech voices available');
+                return;
+            }
             const now = Date.now(); 
             if(now - lastSpeakTime < 1200) return; // Debounce
-            synth.cancel(); 
-            const u = new SpeechSynthesisUtterance(msg); 
-            u.rate = 1.2; 
-            u.pitch = 1.0;
-            synth.speak(u); 
-            lastSpeakTime = now;
+            try {
+                synth.cancel(); 
+                const u = new SpeechSynthesisUtterance(msg); 
+                u.rate = 1.2; 
+                u.pitch = 1.0;
+                u.voice = voices[0]; // Use first available voice
+                synth.speak(u); 
+                lastSpeakTime = now;
+            } catch(e) {
+                console.warn('Speech synthesis failed:', e);
+            }
         }
     </script>
 </body>
