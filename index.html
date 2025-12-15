@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AthletiQ Pro</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400&family=JetBrains+Mono:wght@400;700;800&family=Inter:wght@300;400;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- CORE RESET & LAYOUT --- */
+        html, body {
+            width: 100%; height: 100%; margin: 0; padding: 0;
+            overflow: hidden; background: #050505;
+            font-family: 'Inter', sans-serif;
+            touch-action: none; user-select: none; -webkit-user-select: none;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; outline: none; }
+
+        /* --- UI OVERLAY --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+            padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+            box-sizing: border-box;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        /* --- TOP STATUS PILL --- */
+        #status-container {
+            width: 100%; display: flex; justify-content: center;
+        }
+        #status-pill {
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 2px solid #00FF88; /* Dynamic color */
+            padding: 12px 32px; border-radius: 40px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            pointer-events: auto; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        #feedback-text {
+            font-family: 'Playfair Display', serif; font-size: 1.2rem; 
+            font-style: italic; color: #fff; text-align: center;
+        }
+
+        /* --- MIDDLE CONTROLS --- */
+        #main-controls {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            flex-grow: 1; margin-top: 30px;
+        }
+
+        /* Left Stack */
+        #left-stack {
+            display: flex; flex-direction: column; gap: 15px;
+            width: 180px; pointer-events: auto;
+        }
+
+        /* Data Box */
+        #data-panel {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-left: 4px solid #A51C30;
+            padding: 16px; border-radius: 12px;
+            display: flex; flex-direction: column; gap: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+        }
+
+        .metric-row { display: flex; align-items: baseline; justify-content: space-between; }
+        
+        #counter {
+            font-family: 'JetBrains Mono', monospace; 
+            font-size: 3.5rem; font-weight: 800; color: #fff; line-height: 1;
+            text-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
+        
+        .label-sm { 
+            font-size: 0.75rem; color: #888; font-weight: 800; 
+            letter-spacing: 2px; text-transform: uppercase;
+        }
+        
+        .divider { height: 1px; background: rgba(255,255,255,0.1); margin: 5px 0; }
+        
+        #cal-val { 
+            font-family: 'JetBrains Mono'; font-size: 1.2rem; 
+            color: #FFAA00; font-weight: 700;
+        }
+
+        /* Buttons */
+        .btn-ui {
+            background: rgba(20, 20, 20, 0.9); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 14px 0; text-align: center; cursor: pointer;
+            font-weight: 900; font-size: 0.85rem; letter-spacing: 1.5px;
+            border-radius: 8px; text-transform: uppercase; transition: 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .btn-ui:active { transform: scale(0.96); }
+        .btn-ui.active { background: #A51C30; border-color: #ff334e; color: #fff; }
+
+        /* Dropdown */
+        #dropdown-wrapper { position: relative; width: 100%; z-index: 50; }
+        #selected-mode {
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-bottom: 3px solid #00D4FF; /* Cyan Accent */
+            color: #fff; padding: 14px 0; text-align: center;
+            font-weight: 900; font-size: 0.85rem; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 1.5px; border-radius: 8px;
+        }
+        #options-list {
+            position: absolute; top: 110%; left: 0; width: 100%;
+            background: rgba(10,10,10,0.98); border: 1px solid #333;
+            display: none; flex-direction: column; border-radius: 8px;
+            overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+        }
+        .option-item {
+            padding: 14px; text-align: center; color: #aaa; font-size: 0.8rem; 
+            cursor: pointer; border-bottom: 1px solid #222; font-weight: 700;
+            transition: background 0.2s;
+        }
+        .option-item:hover { background: #00D4FF; color: #000; }
+        #dropdown-wrapper.active #options-list { display: flex; }
+
+        /* Right Stack */
+        #right-stack {
+            display: flex; gap: 12px; pointer-events: auto;
+        }
+        .icon-btn {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: rgba(10, 10, 10, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; backdrop-filter: blur(10px);
+            font-size: 1.2rem; transition: all 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); }
+        .icon-btn:active { transform: scale(0.9); }
+
+        /* --- LOADING / ERROR --- */
+        #loader, #error-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #050505; z-index: 100;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center; padding: 30px; box-sizing: border-box;
+        }
+        #error-screen { display: none; z-index: 101; }
+        
+        .brand { 
+            color: #fff; font-size: 3rem; font-weight: 900; letter-spacing: -2px; 
+            background: linear-gradient(45deg, #fff, #888); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .brand-sub { color: #A51C30; font-size: 0.9rem; letter-spacing: 6px; margin-bottom: 40px; text-transform: uppercase; font-weight: 700; }
+        
+        #btn-init {
+            padding: 18px 50px; background: transparent; 
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff; font-family: 'JetBrains Mono'; font-size: 0.9rem;
+            cursor: pointer; transition: 0.3s; letter-spacing: 2px;
+            border-radius: 4px; display: block; margin: 0 auto;
+        }
+        #btn-init:hover { background: #fff; color: #000; border-color: #fff; }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 600px) {
+            #left-stack { width: 140px; gap: 10px; }
+            #counter { font-size: 2.8rem; }
+            #status-pill { padding: 10px 20px; font-size: 0.9rem; width: 90%; max-width: 250px; }
+        }
+    </style>
+
+    <script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.js"></script>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="brand">ATHLETIQ</div>
+        <div class="brand-sub">PRECISION</div>
+        <button id="btn-init">INITIALIZE SYSTEM</button>
+        <div style="margin-top:20px; color:#444; font-size:0.7rem;">Engineered progress</div>
+    </div>
+
+    <div id="error-screen">
+        <div class="brand" style="color: #A51C30; -webkit-text-fill-color: #A51C30;">ACCESS DENIED</div>
+        <p style="color: #aaa; margin: 20px 0; max-width: 300px; line-height: 1.5;">
+            Camera access is required for vision analysis. Please allow camera permissions in your browser settings.
+        </p>
+        <button id="btn-retry" onclick="location.reload()" class="btn-ui" style="padding:12px 30px; width:auto;">RELOAD</button>
+    </div>
+
+    <div id="ui-layer">
+        
+        <div id="status-container">
+            <div id="status-pill">
+                <div id="feedback-text">System Ready</div>
+            </div>
+        </div>
+
+        <div id="main-controls">
+            <div id="left-stack">
+                <div id="data-panel">
+                    <div class="metric-row">
+                        <span id="counter">0</span>
+                        <span class="label-sm" id="counter-label">REPS</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="metric-row">
+                        <span id="cal-val">0.0</span>
+                        <span class="label-sm">KCAL</span>
+                    </div>
+                </div>
+
+                <div id="btn-rest" class="btn-ui">PAUSE</div>
+
+                <div id="dropdown-wrapper">
+                    <div id="selected-mode">PUSHUPS</div>
+                    <div id="options-list">
+                        <div class="option-item" data-value="pushup">PUSHUPS</div>
+                        <div class="option-item" data-value="squat">SQUATS</div>
+                        <div class="option-item" data-value="situp">SITUPS</div>
+                        <div class="option-item" data-value="plank">PLANK TIMER</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="right-stack">
+                <div id="btn-fullscreen" class="icon-btn">⛶</div>
+                <div id="btn-audio" class="icon-btn">🔊</div>
+            </div>
+        </div>
+        
+        <div style="height: 20px;"></div>
+    </div>
+
+    <script>
+        /**
+         * ATHLETIQ CORE ENGINE
+         * Advanced Configuration for High Accuracy
+         */
+        const CONFIG = {
+            colors: {
+                crimson: 0xA51C30,
+                green: 0x00FF88,
+                cyan: 0x00D4FF,
+                orange: 0xFFAA00,
+                white: 0xFFFFFF
+            },
+            modes: {
+                pushup: { up: 160, down: 85, posture: 155, cal: 0.45, label: "REPS" },
+                squat:  { up: 170, down: 100, posture: 0, cal: 0.60, label: "REPS" },
+                situp:  { up: 50, down: 130, posture: 0, cal: 0.30, label: "REPS" },
+                plank:  { straight: 165, cal: 0.08, label: "SEC" }
+            },
+            smoothing: 0.8 // Alpha value for LowPassFilter (0-1)
+        };
+
+        const state = {
+            isRunning: false,
+            isResting: false,
+            mode: 'pushup',
+            count: 0,
+            calories: 0.0,
+            stage: "UP",
+            audio: true
+        };
+
+        // Global Vars
+        let detector, video;
+        let scene, camera, renderer, videoMesh, skeletonLines, jointPoints;
+        let lastKps = null; // For smoothing
+        const synth = window.speechSynthesis;
+        let lastSpeakTime = 0;
+
+        // --- 1. UI INTERACTION ---
+        
+        // Fullscreen
+        const btnFull = document.getElementById('btn-fullscreen');
+        btnFull.onclick = () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+                btnFull.innerText = "✕";
+            } else {
+                if(document.exitFullscreen) document.exitFullscreen();
+                btnFull.innerText = "⛶";
+            }
+        };
+
+        // Audio Toggle
+        const btnAudio = document.getElementById('btn-audio');
+        btnAudio.onclick = () => {
+            state.audio = !state.audio;
+            btnAudio.style.opacity = state.audio ? "1" : "0.5";
+            btnAudio.innerText = state.audio ? "🔊" : "🔇";
+        };
+
+        // Dropdown Logic
+        const dropdown = document.getElementById('dropdown-wrapper');
+        const selText = document.getElementById('selected-mode');
+        selText.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('active'); };
+        
+        document.querySelectorAll('.option-item').forEach(opt => {
+            opt.onclick = () => {
+                state.mode = opt.dataset.value;
+                selText.innerText = opt.innerText;
+                dropdown.classList.remove('active');
+                resetSession();
+            }
+        });
+        document.addEventListener('click', () => dropdown.classList.remove('active'));
+
+        // Pause/Resume
+        const btnRest = document.getElementById('btn-rest');
+        btnRest.onclick = (e) => {
+            e.stopPropagation();
+            state.isResting = !state.isResting;
+            if(state.isResting) {
+                btnRest.innerText = "RESUME";
+                btnRest.classList.add('active');
+                setStatus("Session Paused", CONFIG.colors.white);
+            } else {
+                btnRest.innerText = "PAUSE";
+                btnRest.classList.remove('active');
+                setStatus("Go!", CONFIG.colors.white);
+            }
+        };
+
+        function resetSession() {
+            state.count = 0; state.calories = 0;
+            state.stage = (state.mode === 'situp') ? "DOWN" : "UP";
+            document.getElementById('counter').innerText = "0";
+            document.getElementById('cal-val').innerText = "0.0";
+            document.getElementById('counter-label').innerText = CONFIG.modes[state.mode].label;
+            setStatus(selText.innerText + " Ready", CONFIG.colors.white);
+        }
+
+        // --- 2. INITIALIZATION ---
+        const btnInit = document.getElementById('btn-init');
+        const loader = document.getElementById('loader');
+        
+        btnInit.onclick = async () => {
+            btnInit.disabled = true;
+            btnInit.innerText = "ACCESSING CAMERA...";
+            
+            try {
+                // A. Setup Camera
+                video = document.createElement('video');
+                video.playsInline = true; video.muted = true;
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, // HD Req
+                    audio: false
+                });
+                video.srcObject = stream;
+                await new Promise(r => video.onloadedmetadata = () => video.play().then(r));
+
+                // B. Setup AI (Thunder Model for Accuracy)
+                btnInit.innerText = "LOADING ADVANCED AI...";
+                await tf.ready();
+                detector = await poseDetection.createDetector(
+                    poseDetection.SupportedModels.MoveNet,
+                    { 
+                        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER, // HIGH ACCURACY
+                        enableSmoothing: true 
+                    }
+                );
+
+                // C. Setup 3D Scene
+                initThreeJS();
+                
+                // D. Launch
+                loader.style.opacity = 0;
+                setTimeout(() => loader.style.display='none', 500);
+                state.isRunning = true;
+                speak("System Online");
+                loop();
+
+            } catch(e) {
+                console.error(e);
+                loader.style.display = 'none';
+                document.getElementById('error-screen').style.display = 'flex';
+            }
+        };
+
+        // --- 3. THREE.JS SCENE ---
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            
+            // Ortho Camera (-1 to 1)
+            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
+            camera.position.z = 5;
+            
+            // 1. Video Background Plane (Pushed to Z = -1 to avoid occlusion)
+            const texture = new THREE.VideoTexture(video);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            const vidGeo = new THREE.PlaneGeometry(2, 2);
+            const vidMat = new THREE.MeshBasicMaterial({ 
+                map: texture, 
+                depthTest: false, 
+                depthWrite: false 
+            });
+            // Mirror texture horizontally
+            vidMat.map.center.set(0.5, 0.5);
+            vidMat.map.repeat.set(-1, 1);
+            
+            videoMesh = new THREE.Mesh(vidGeo, vidMat);
+            videoMesh.position.z = -1; // BACKGROUND
+            videoMesh.renderOrder = 0;
+            scene.add(videoMesh);
+
+            // 2. Skeleton Lines (Z = 0)
+            const lineGeo = new THREE.BufferGeometry();
+            // Pre-allocate buffer for 30 lines
+            lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(60*3), 3));
+            
+            const lineMat = new THREE.LineBasicMaterial({
+                color: CONFIG.colors.cyan, 
+                linewidth: 3, // Best effort
+                transparent: true, 
+                opacity: 0.9,
+                depthTest: false,
+                blending: THREE.AdditiveBlending // Glow effect
+            });
+            
+            skeletonLines = new THREE.LineSegments(lineGeo, lineMat);
+            skeletonLines.position.z = 0; // FOREGROUND
+            skeletonLines.renderOrder = 1;
+            scene.add(skeletonLines);
+
+            // 3. Joints (Z = 0)
+            const dotGeo = new THREE.BufferGeometry();
+            dotGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(17*3), 3));
+            
+            // Custom circle texture for points
+            const cvs = document.createElement('canvas'); cvs.width=64; cvs.height=64;
+            const ctx = cvs.getContext('2d');
+            ctx.beginPath(); ctx.arc(32,32,30,0,Math.PI*2); 
+            ctx.fillStyle='#fff'; ctx.fill();
+            
+            const dotMat = new THREE.PointsMaterial({
+                color: CONFIG.colors.white,
+                map: new THREE.CanvasTexture(cvs), 
+                size: 0.08, // Larger dots
+                transparent: true, 
+                depthTest: false,
+                blending: THREE.AdditiveBlending
+            });
+            
+            jointPoints = new THREE.Points(dotGeo, dotMat);
+            jointPoints.position.z = 0; // FOREGROUND
+            jointPoints.renderOrder = 2;
+            scene.add(jointPoints);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({antialias:true, alpha: false, powerPreference:"high-performance"});
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+
+            window.addEventListener('resize', onResize);
+            onResize();
+        }
+
+        function onResize() {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if(!video) return;
+            
+            const screenAspect = window.innerWidth / window.innerHeight;
+            const videoAspect = video.videoWidth / video.videoHeight;
+            
+            // Object-Fit: Cover logic
+            let scaleX = 1, scaleY = 1;
+            if (screenAspect > videoAspect) {
+                scaleY = screenAspect / videoAspect;
+            } else {
+                scaleX = videoAspect / screenAspect;
+            }
+            
+            videoMesh.scale.set(scaleX, scaleY, 1);
+            // Skeleton must match video scaling to stay aligned
+            skeletonLines.scale.set(scaleX, scaleY, 1);
+            jointPoints.scale.set(scaleX, scaleY, 1);
+        }
+
+        // --- 4. MAIN LOOP ---
+        async function loop() {
+            if(!state.isRunning) return;
+            
+            // Analyze
+            if(!state.isResting && detector && video.readyState >= 2) {
+                try {
+                    const poses = await detector.estimatePoses(video);
+                    if(poses.length > 0) {
+                        processFrame(poses[0].keypoints);
+                    }
+                } catch (e) { console.warn("Frame drop", e); }
+            }
+            
+            renderer.render(scene, camera);
+            requestAnimationFrame(loop);
+        }
+
+        function processFrame(rawKps) {
+            // Low Pass Filter Smoothing
+            if(!lastKps) lastKps = rawKps;
+            
+            const kps = rawKps.map((kp, i) => {
+                const smoothX = lastKps[i].x * CONFIG.smoothing + kp.x * (1 - CONFIG.smoothing);
+                const smoothY = lastKps[i].y * CONFIG.smoothing + kp.y * (1 - CONFIG.smoothing);
+                return { x: smoothX, y: smoothY, score: kp.score };
+            });
+            lastKps = kps;
+
+            // Exercise Logic
+            if(checkConfidence(kps)) {
+                switch(state.mode) {
+                    case 'pushup': analyzePushup(kps); break;
+                    case 'squat':  analyzeSquat(kps); break;
+                    case 'situp':  analyzeSitup(kps); break;
+                    case 'plank':  analyzePlank(kps); break;
+                }
+            } else {
+                setStatus("Body Not Fully Visible", CONFIG.colors.orange);
+            }
+
+            drawSkeleton(kps);
+        }
+
+        // --- 5. LOGIC & MATH ---
+        function checkConfidence(kps) {
+            // Check essential points for current mode
+            // Simple check: are hips and shoulders visible?
+            return (kps[5].score > 0.3 && kps[6].score > 0.3 && kps[11].score > 0.3 && kps[12].score > 0.3);
+        }
+
+        function analyzePushup(kps) {
+            const lArm = getAngle(kps[5], kps[7], kps[9]);
+            const rArm = getAngle(kps[6], kps[8], kps[10]);
+            const arm = (kps[7].score > kps[8].score) ? lArm : rArm;
+            
+            // Color Logic
+            const intensity = Math.min(1, Math.abs(arm - CONFIG.modes.pushup.up) / 60);
+            updateColorDynamic(intensity);
+
+            if(arm > CONFIG.modes.pushup.up) {
+                if(state.stage==="DOWN") completeRep(); 
+                state.stage="UP"; 
+                setStatus("Descend", CONFIG.colors.white); 
+            } else if(arm < CONFIG.modes.pushup.down) {
+                state.stage="DOWN"; 
+                setStatus("Push Up", CONFIG.colors.green); 
+                setColor(CONFIG.colors.green);
+            }
+        }
+        
+        function analyzeSquat(kps) {
+            const lLeg = getAngle(kps[11], kps[13], kps[15]);
+            const rLeg = getAngle(kps[12], kps[14], kps[16]);
+            const leg = Math.min(lLeg, rLeg);
+            
+            if(leg > CONFIG.modes.squat.up) {
+                if(state.stage==="DOWN") completeRep(); 
+                state.stage="UP"; 
+                setStatus("Squat Down", CONFIG.colors.white); 
+                setColor(CONFIG.colors.cyan);
+            } else if(leg < CONFIG.modes.squat.down) {
+                state.stage="DOWN"; 
+                setStatus("Power Up", CONFIG.colors.green); 
+                setColor(CONFIG.colors.green);
+            }
+        }
+        
+        function analyzeSitup(kps) {
+            const hip = Math.min(getAngle(kps[5], kps[11], kps[13]), getAngle(kps[6], kps[12], kps[14]));
+            if(hip > CONFIG.modes.situp.down) {
+                state.stage="DOWN"; setStatus("Crunch Up", CONFIG.colors.white);
+            } else if(hip < CONFIG.modes.situp.up) {
+                if(state.stage==="DOWN") completeRep(); 
+                state.stage="UP"; setStatus("Lie Down", CONFIG.colors.green);
+            }
+        }
+        
+        function analyzePlank(kps) {
+            const body = Math.max(getAngle(kps[5], kps[11], kps[13]), getAngle(kps[6], kps[12], kps[14]));
+            if(body > CONFIG.modes.plank.straight) {
+                if(Date.now()%1000<50) { 
+                    state.count++; 
+                    document.getElementById('counter').innerText = state.count; 
+                }
+                state.calories += CONFIG.modes.plank.cal/60; 
+                document.getElementById('cal-val').innerText = state.calories.toFixed(1);
+                setStatus("Hold Core", CONFIG.colors.green);
+                setColor(CONFIG.colors.green);
+            } else { 
+                setStatus("Straighten Back", CONFIG.colors.orange); 
+                setColor(CONFIG.colors.orange); 
+            }
+        }
+
+        // --- 6. VISUALIZATION ---
+        function drawSkeleton(kps) {
+            const posAttr = skeletonLines.geometry.attributes.position;
+            const ptsAttr = jointPoints.geometry.attributes.position;
+            const arr = posAttr.array;
+            const pArr = ptsAttr.array;
+
+            // Geometry Mapping
+            // MoveNet: x,y in [0, 1]. (0,0) is top-left.
+            // ThreeJS: x,y in [-1, 1]. (0,0) is center.
+            // Texture is mirrored (-1 scale), so we need to map X appropriately.
+            // Correct Map: x = (0.5 - p.x) * 2  --> Because texture is flipped, we flip coord space relative to center
+            
+            const map = p => ({ 
+                x: (0.5 - p.x) * 2,  // X Flipped for mirrored feel
+                y: -(p.y - 0.5) * 2  // Y Inverted for WebGL coords
+            });
+
+            // Define Connections (Indices from MoveNet map)
+            const connections = [
+                [5,6], [5,7], [7,9], [6,8], [8,10], // Arms
+                [5,11], [6,12], [11,12],            // Torso
+                [11,13], [13,15], [12,14], [14,16]  // Legs
+            ];
+
+            let idx = 0;
+            connections.forEach(([i, j]) => {
+                const p1 = kps[i]; const p2 = kps[j];
+                if(p1.score > 0.3 && p2.score > 0.3) {
+                    const m1 = map(p1); const m2 = map(p2);
+                    arr[idx++] = m1.x; arr[idx++] = m1.y; arr[idx++] = 0;
+                    arr[idx++] = m2.x; arr[idx++] = m2.y; arr[idx++] = 0;
+                } else {
+                    // Hide line by setting to 0,0,0 (or collapse)
+                    for(let k=0; k<6; k++) arr[idx++] = 0;
+                }
+            });
+            posAttr.needsUpdate = true;
+
+            // Draw Points
+            for(let i=0; i<17; i++) {
+                if(kps[i].score > 0.3) {
+                    const m = map(kps[i]);
+                    pArr[i*3] = m.x; pArr[i*3+1] = m.y; pArr[i*3+2] = 0;
+                } else {
+                    pArr[i*3] = 0; pArr[i*3+1] = 0; pArr[i*3+2] = 0;
+                }
+            }
+            ptsAttr.needsUpdate = true;
+        }
+
+        // Helper: Calculate Angle between 3 points
+        function getAngle(a, b, c) {
+            if(!a || !b || !c) return 180;
+            const ang = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+            let val = Math.abs(ang * 180 / Math.PI);
+            return val > 180 ? 360 - val : val;
+        }
+
+        // Helper: Update UI/Audio
+        function completeRep() {
+            state.count++; 
+            state.calories += CONFIG.modes[state.mode].cal;
+            
+            const countEl = document.getElementById('counter');
+            countEl.innerText = state.count;
+            
+            // Animation Pulse
+            countEl.style.transform = "scale(1.5)";
+            countEl.style.color = "#00FF88";
+            setTimeout(() => { 
+                countEl.style.transform = "scale(1)"; 
+                countEl.style.color = "#fff"; 
+            }, 300);
+
+            document.getElementById('cal-val').innerText = state.calories.toFixed(1);
+            
+            const pill = document.getElementById('status-pill');
+            pill.style.borderTopColor = "#00FF88";
+            
+            speak(state.count.toString());
+            setStatus("Excellent!", CONFIG.colors.green);
+        }
+
+        function setStatus(text, color) {
+            document.getElementById('feedback-text').innerText = text;
+            const hex = '#' + color.toString(16).padStart(6,'0');
+            document.getElementById('status-pill').style.borderTopColor = hex;
+        }
+
+        function setColor(hex) {
+            skeletonLines.material.color.setHex(hex);
+            jointPoints.material.color.setHex(hex);
+        }
+
+        function updateColorDynamic(intensity) {
+            // Interpolate between Cyan and Crimson based on effort
+            const c1 = new THREE.Color(CONFIG.colors.cyan);
+            const c2 = new THREE.Color(CONFIG.colors.crimson);
+            skeletonLines.material.color.lerpColors(c1, c2, intensity);
+        }
+
+        function speak(msg) {
+            if(!state.audio || !synth) return;
+            const now = Date.now(); 
+            if(now - lastSpeakTime < 1200) return; // Debounce
+            synth.cancel(); 
+            const u = new SpeechSynthesisUtterance(msg); 
+            u.rate = 1.2; 
+            u.pitch = 1.0;
+            synth.speak(u); 
+            lastSpeakTime = now;
+        }
+    </script>
+</body>
+</html>
