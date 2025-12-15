@@ -1,0 +1,12 @@
+{
+  "background_color": "#000000",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "ATHLETIQ",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "ATHLETIQ",
+  "start_url": "/",
+  "theme_color": "#000000",
+  "id": "ATHLWTIQ"
+}
